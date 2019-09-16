@@ -26,7 +26,7 @@
             :help "Bot nickname"}
     "channel" {:kind :option
                :short "c"
-               :help "What irc channel to connect to."
+               :help "What irc channel to connect to, with no leading #"
                :required true}
     "host" {:kind :option
             :short "H"

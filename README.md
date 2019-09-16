@@ -25,3 +25,7 @@ Use the -h flag to see options.
 ```
 x43bot -h
 ```
+
+## Credits
+
+Inspired by https://git.sr.ht/~technomancy/pengbot, although no code from there.
