@@ -1,0 +1,168 @@
+#!/usr/bin/env janet
+
+###
+### ./x43bot
+###
+### IRC bot for handling that can dispatch on commands from users.
+### Simple to configure and extend in code.
+###
+### Copyright © Calvin Rose <calsrose@gmail.com> 2019
+###
+
+(import uv)
+(import argparse)
+
+(def opts
+  (argparse/argparse
+    "A Simple IRC bot that responds to messages."
+    "verbose" {:kind :flag
+               :short "v"
+               :help "Print debug information to stdout."}
+    "nick" {:kind :option
+            :short "n"
+            :default "x43bot"
+            :help "Bot nickname"}
+    "channel" {:kind :option
+               :short "c"
+               :help "What irc channel to connect to. x43bot does not support SSL."
+               :required true}
+    "host" {:kind :option
+            :short "H"
+            :help "The irc server to connect to."
+            :default "chat.freenode.net"}
+    "port" {:kind :option
+            :short "p"
+            :help "The port to connect."
+            :default "6667"}
+    "myhost" {:kind :option
+              :short "o"
+              :help "What host this bot is running on. Used for showing the hostname of the bot."
+              :default "unknown"}
+    "myserver" {:kind :option
+                :short "e"
+                :help "What server this bot is running on. Used for showing the server of the bot."
+                :default "unknown"}))
+
+(unless opts (os/exit 1))
+
+(def {"nick" nick
+      "host" host
+      "port" port
+      "channel" channel
+      "myhost" myhost
+      "myserver" myserver
+      "verbose" verbose}
+  opts)
+
+(def irc-peg
+  "PEG to parser server IRC commands. Defined in RFC 1459"
+  (peg/compile
+    ~{:space (some " ")
+      :trailing '(any (if-not (set "\0\r\n") 1))
+      :middle '(some (if-not (set " \0\r\n") 1))
+      :params (+ -1 (* :space (+ (* ":" :trailing) (* :middle :params))))
+      :command (+ '(some (range "az" "AZ"))
+                  (/ '(between 3 3 (range "09")) ,scan-number))
+      :word (some (if-not " " 1))
+      :prefix ':word
+      :main (* (? (* (constant :prefix)
+                     ":" :prefix :space))
+               (constant :command) :command
+               (constant :params) (group :params))}))
+
+(def command-peg
+  ```
+  Peg to handle incoming commands. Commands look like:
+  x43bot: command arg1 'arg 2' "arg'3"
+  ```
+  (peg/compile
+    ~{:param (+ (* `"` '(any (if-not `"` (* (? "\\") 1))) `"`)
+                (* `'` '(any (if-not `'` (* (? "\\") 1))) `'`)
+                '(some (if-not " " 1)))
+      :main (* (any " ") ,nick ":"
+               (some (* (any " ") :param)))}))
+
+
+# User facing commands go here
+(def available-commands @[])
+(def handlers
+  @{:poke (fn [&] "Hey, stop it!")
+    :help (fn [&] (string
+                    "Available commands: "
+                    (string/join available-commands ", ")))})
+(array/concat available-commands (sort (keys handlers)))
+
+(def client
+  "TCP Socket to connect to irc server"
+  (uv/tcp/new))
+(:nodelay client true)
+
+(defn irc-write
+  "Write a message to the connected irc channel."
+  [& parts]
+  (def msg (string ;parts "\r\n"))
+  (:write client msg)
+  (print "> " ;parts)
+  (yield))
+
+(def read-queue
+  "We may get back large chunks
+  of data from the server, and we need it to be
+  buffered by line. This queue keeps not yet processed lines."
+  @[])
+
+(defn irc-read
+  "Read a server response after sending a command."
+  []
+  (while (empty? read-queue)
+    (:read-start client)
+    (def chunk (yield))
+    (:read-stop client)
+    (array/concat
+      read-queue
+      (filter |(not (empty? $))
+              (string/split "\r\n" chunk))))
+  (def first-in (read-queue 0))
+  (array/remove read-queue 0)
+  first-in)
+
+(defn on-bot-command
+  "Handle user initiated command to the bot"
+  [irc-args]
+  (if-let [msg (irc-args 1)]
+    (when-let [args (peg/match command-peg msg)]
+              (def f (or (handlers (keyword (args 0)))
+                         (fn [&]
+                           (string "Invalid command " (args 0)
+                                   " - " ((handlers :help))))))
+              (def response (f ;(tuple/slice args 1)))
+              (unless verbose (print "< " msg " > " response))
+              (irc-write "PRIVMSG " (irc-args 0) " :" response))))
+
+(defn on-line
+  "Handle an IRC message from the server."
+  [line]
+  (when verbose (print "< " line))
+  (def m (peg/match irc-peg line))
+  (unless m (break))
+  (def {:params params
+        :command command
+        :prefix prefix} (table ;m))
+  (case command
+    "PING" (irc-write "PONG :" (params 0))
+    "PRIVMSG" (on-bot-command params)))
+
+#
+# Main
+#
+
+(uv/enter-loop
+  (yield (:connect client host (scan-number (string port))))
+
+  (irc-write "NICK " nick)
+  (irc-write "USER " nick " " myhost " " myserver " :X43 Bot")
+  (irc-write "JOIN #" channel)
+
+  (while true
+    (if-let [line (irc-read)]
+      (on-line line))))
