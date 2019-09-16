@@ -24,24 +24,16 @@
             :help "Bot nickname"}
     "channel" {:kind :option
                :short "c"
-               :help "What irc channel to connect to. x43bot does not support SSL."
+               :help "What irc channel to connect to."
                :required true}
     "host" {:kind :option
             :short "H"
-            :help "The irc server to connect to."
+            :help "The irc server to connect to. x43bot does not support SSL."
             :default "chat.freenode.net"}
     "port" {:kind :option
             :short "p"
             :help "The port to connect."
-            :default "6667"}
-    "myhost" {:kind :option
-              :short "o"
-              :help "What host this bot is running on. Used for showing the hostname of the bot."
-              :default "unknown"}
-    "myserver" {:kind :option
-                :short "e"
-                :help "What server this bot is running on. Used for showing the server of the bot."
-                :default "unknown"}))
+            :default "6667"}))
 
 (unless opts (os/exit 1))
 
@@ -49,8 +41,6 @@
       "host" host
       "port" port
       "channel" channel
-      "myhost" myhost
-      "myserver" myserver
       "verbose" verbose}
   opts)
 
@@ -160,7 +150,7 @@
   (yield (:connect client host (scan-number (string port))))
 
   (irc-write "NICK " nick)
-  (irc-write "USER " nick " " myhost " " myserver " :X43 Bot")
+  (irc-write "USER " nick " * * :X43 Bot")
   (irc-write "JOIN #" channel)
 
   (while true
