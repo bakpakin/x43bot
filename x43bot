@@ -3,7 +3,7 @@
 ###
 ### ./x43bot
 ###
-### IRC bot for handling that can dispatch on commands from users.
+### IRC bot that can dispatch on commands from users.
 ### Simple to configure and extend in code.
 ###
 ### Copyright © Calvin Rose <calsrose@gmail.com> 2019
@@ -11,6 +11,8 @@
 
 (import uv)
 (import argparse)
+
+(def version "0.0.0")
 
 (def opts
   (argparse/argparse
@@ -77,6 +79,8 @@
 (def available-commands @[])
 (def handlers
   @{:poke (fn [&] "Hey, stop it!")
+    :version (fn [&] (string "x43bot version " version ", Janet "
+                             janet/version "-" janet/build))
     :help (fn [&] (string
                     "Available commands: "
                     (string/join available-commands ", ")))})
@@ -126,7 +130,9 @@
                            (string "Invalid command " (args 0)
                                    " - " ((handlers :help))))))
               (def response (f ;(tuple/slice args 1)))
-              (unless verbose (print "< " msg " > " response))
+              (if verbose 
+                (print "> " response)
+                (print "< " msg " > " response))
               (irc-write "PRIVMSG " (irc-args 0) " :" response))))
 
 (defn on-line
