@@ -5,5 +5,7 @@
   :dependencies ["https://github.com/janet-lang/juv.git"
                  "https://github.com/janet-lang/argparse.git"])
 
-(declare-binscript
-  :main "x43bot")
+(declare-executable
+  :name "x43bot"
+  :entry "x43bot.janet"
+  :install true)
