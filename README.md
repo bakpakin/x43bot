@@ -8,16 +8,6 @@ bakpakin | x43bot: poke
   x43bot | Hey, stop that!
 ```
 
-## Install
-
-Make sure to have libuv installed on your system. You can also use `jpm clear-cache`
-if the install does not work the first time. This will get rid of any out-of-date
-installed dependencies.
-
-```
-[sudo] jpm install https://github.com/bakpakin/x43bot.git
-```
-
 ## Running
 
 Use the -h flag to see options.
