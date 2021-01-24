@@ -9,8 +9,7 @@
 ### Copyright © Calvin Rose <calsrose@gmail.com> 2019
 ###
 
-(import uv)
-(import argparse)
+(import spork/argparse)
 
 (def version "0.0.0")
 
@@ -148,18 +147,16 @@ with-syms yield zero? zipcoll````))
                       (string/join available-commands ", ")))})
   (array/concat available-commands (sort (keys handlers)))
 
-  (def client
+  (var client
     "TCP Socket to connect to irc server"
-    (uv/tcp/new))
-  (:nodelay client true)
+    nil)
 
   (defn irc-write
     "Write a message to the connected irc channel."
     [& parts]
     (def msg (string ;parts "\r\n"))
-    (:write client msg)
     (print "> " ;parts)
-    (yield))
+    (net/write client msg))
 
   (def read-queue
     "We may get back large chunks
@@ -171,9 +168,7 @@ with-syms yield zero? zipcoll````))
     "Read a server response after sending a command."
     []
     (while (empty? read-queue)
-      (:read-start client)
-      (def chunk (yield))
-      (:read-stop client)
+      (def chunk (net/read client 4096))
       (array/concat
         read-queue
         (filter |(not (empty? $))
@@ -216,13 +211,12 @@ with-syms yield zero? zipcoll````))
   # Main
   #
 
-  (uv/enter-loop
-    (yield (:connect client host (scan-number (string port))))
+  (set client (net/connect host (scan-number (string port))))
 
-    (irc-write "NICK " nick)
-    (irc-write "USER " nick " * * :X43 Bot")
-    (irc-write "JOIN #" channel)
+  (irc-write "NICK " nick)
+  (irc-write "USER " nick " * * :X43 Bot")
+  (irc-write "JOIN #" channel)
 
-    (while true
-      (if-let [line (irc-read)]
-        (on-line line)))))
+  (while true
+    (if-let [line (irc-read)]
+      (on-line line))))
