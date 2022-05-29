@@ -2,6 +2,7 @@
   :name "x43bot"
   :description "An IRC bot"
   :author "Calvin Rose"
+  :url "https://github.com/bakpakin/x43bot"
   :dependencies ["spork"])
 
 (declare-executable
